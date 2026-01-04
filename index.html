@@ -25,16 +25,6 @@
             cursor: none;
         }
 
-        #three-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none;
-        }
-
         .container {
             position: fixed;
             top: 0;
@@ -156,6 +146,14 @@
             pointer-events: none;
             opacity: 1;
             box-shadow: 0 0 30px rgba(255, 255, 255, 1);
+        }
+
+        .strawberry-particle {
+            position: fixed;
+            font-size: 25px;
+            pointer-events: none;
+            z-index: 1;
+            will-change: transform;
         }
 
         .cursor-trail {
@@ -337,8 +335,6 @@
     </style>
 </head>
 <body>
-    <canvas id="three-canvas"></canvas>
-
     <div class="container">
         <div class="barry-container" id="barry">
             <div class="glow-ring" id="glowRing"></div>
@@ -357,11 +353,9 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     
     <script>
         const isMobile = window.innerWidth <= 768;
-        const isLowEndDevice = isMobile && (navigator.hardwareConcurrency <= 4 || navigator.deviceMemory <= 4);
 
         if (!isMobile) {
             const cursor = document.createElement('div');
@@ -398,7 +392,7 @@
         }
 
         function createBackgroundStars() {
-            const starCount = isLowEndDevice ? 20 : (isMobile ? 30 : 60);
+            const starCount = isMobile ? 30 : 60;
             for (let i = 0; i < starCount; i++) {
                 const star = document.createElement('div');
                 star.className = 'bg-star';
@@ -415,191 +409,6 @@
             }
         }
         createBackgroundStars();
-
-        let scene, camera, renderer, particles = [];
-        let mouseX = 0, mouseY = 0;
-
-        function initThreeJS() {
-            if (isLowEndDevice) {
-                console.log('Three.js disabled for performance');
-                return;
-            }
-            scene = new THREE.Scene();
-
-            scene.fog = new THREE.Fog(0xff8fab, 20, 50);
-
-            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.z = 20;
-
-            const canvas = document.getElementById('three-canvas');
-            renderer = new THREE.WebGLRenderer({
-                canvas: canvas,
-                alpha: true,
-                antialias: !isMobile,
-                powerPreference: isMobile ? 'low-power' : 'high-performance'
-            });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 2));
-
-            function createEmojiTexture(emoji, size = 64) {
-                const canvas = document.createElement('canvas');
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                
-                ctx.clearRect(0, 0, size, size);
-                
-                ctx.font = `${size - 10}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(emoji, size / 2, size / 2);
-                
-                const texture = new THREE.CanvasTexture(canvas);
-                texture.needsUpdate = true;
-                return texture;
-            }
-
-            const strawberryTexture = createEmojiTexture('🍓', 72);
-            const heartTexture = createEmojiTexture('💖', 72);
-            const sparkleTexture = createEmojiTexture('✨', 64);
-
-            const particleCount = isMobile ? 35 : 70;
-            
-            for (let i = 0; i < particleCount; i++) {
-                const rand = Math.random();
-                const texture = rand > 0.75 ? sparkleTexture : (rand > 0.65 ? heartTexture : strawberryTexture);
-                
-                const spriteMaterial = new THREE.SpriteMaterial({
-                    map: texture,
-                    transparent: true,
-                    opacity: 1,
-                    depthTest: true,
-                    depthWrite: false,
-                    fog: true,
-                    blending: THREE.NormalBlending
-                });
-                
-                const sprite = new THREE.Sprite(spriteMaterial);
-                
-                const z = (Math.random() - 0.5) * 30;
-                sprite.position.x = (Math.random() - 0.5) * 45;
-                sprite.position.y = Math.random() * 35 + 15;
-                sprite.position.z = z;
-                
-                const depthFactor = (z + 15) / 30;
-                const baseScale = isMobile ? 1.2 : 0.9;
-                const scaleRange = isMobile ? 1.2 : 1.0;
-                const scale = baseScale + depthFactor * scaleRange;
-                sprite.scale.set(scale, scale, 1);
-                
-                const baseOpacity = isMobile ? 0.75 : 0.6;
-                spriteMaterial.opacity = baseOpacity + depthFactor * 0.3;
-                
-                sprite.userData.speed = 0.018 + depthFactor * 0.022;
-                sprite.userData.rotationSpeed = (Math.random() - 0.5) * 0.03;
-                sprite.userData.swayAmplitude = Math.random() * 1.2;
-                sprite.userData.swaySpeed = Math.random() * 1.2 + 0.5;
-                sprite.userData.swayOffset = Math.random() * Math.PI * 2;
-                
-                scene.add(sprite);
-                particles.push(sprite);
-            }
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const pinkLight1 = new THREE.PointLight(0xff6b9d, 2, 50);
-            pinkLight1.position.set(0, 0, 15);
-            scene.add(pinkLight1);
-
-            const whiteLight1 = new THREE.PointLight(0xffffff, 1.5, 40);
-            whiteLight1.position.set(15, 10, 10);
-            scene.add(whiteLight1);
-
-            const whiteLight2 = new THREE.PointLight(0xffffff, 1.5, 40);
-            whiteLight2.position.set(-15, -10, 10);
-            scene.add(whiteLight2);
-
-            const movingPinkLight = new THREE.PointLight(0xffc6d9, 2, 35);
-            scene.add(movingPinkLight);
-
-            const rimLight = new THREE.PointLight(0xddffff, 0.8, 45);
-            rimLight.position.set(0, -15, -5);
-            scene.add(rimLight);
-
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-
-            let time = 0;
-            let frameCount = 0;
-            function animate3D() {
-                requestAnimationFrame(animate3D);
-                
-                if (isMobile) {
-                    frameCount++;
-                    if (frameCount % 2 !== 0) return;
-                }
-                
-                time += 0.008;
-
-                particles.forEach((particle) => {
-                    particle.position.y -= particle.userData.speed;
-                    particle.rotation.z += particle.userData.rotationSpeed;
-                    
-                    const swayTime = time * particle.userData.swaySpeed + particle.userData.swayOffset;
-                    particle.position.x += Math.sin(swayTime) * 0.04 * particle.userData.swayAmplitude;
-                    
-                    if (particle.position.y < -15) {
-                        particle.position.y = 30;
-                        particle.position.x = (Math.random() - 0.5) * 45;
-                        const z = (Math.random() - 0.5) * 30;
-                        particle.position.z = z;
-                        
-                        const depthFactor = (z + 15) / 30;
-                        const baseScale = isMobile ? 1.2 : 0.9;
-                        const scaleRange = isMobile ? 1.2 : 1.0;
-                        const scale = baseScale + depthFactor * scaleRange;
-                        particle.scale.set(scale, scale, 1);
-                        
-                        const baseOpacity = isMobile ? 0.75 : 0.6;
-                        particle.material.opacity = baseOpacity + depthFactor * 0.3;
-                    }
-                });
-
-                movingPinkLight.position.x = Math.sin(time * 0.6) * 15;
-                movingPinkLight.position.y = Math.cos(time * 0.4) * 12;
-                movingPinkLight.position.z = Math.sin(time * 0.8) * 8 + 12;
-
-                const targetX = mouseX * 3;
-                const targetY = mouseY * 3;
-                
-                camera.position.x += (targetX - camera.position.x) * 0.03;
-                camera.position.y += (targetY - camera.position.y) * 0.03;
-                
-                camera.rotation.y = mouseX * 0.03;
-                camera.rotation.x = -mouseY * 0.03;
-                
-                camera.lookAt(scene.position);
-
-                renderer.render(scene, camera);
-            }
-
-            animate3D();
-        }
-
-        if (!isMobile) {
-            document.addEventListener('mousemove', (e) => {
-                mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-                mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-            });
-        }
-
-        if (typeof THREE !== 'undefined') {
-            setTimeout(initThreeJS, 100);
-        }
 
         function initAnimation() {
             const titleText = "صبا کوچولو";
@@ -676,13 +485,9 @@
                     repeat: -1
                 });
 
-                const barryTrailInterval = isLowEndDevice ? 300 : (isMobile ? 180 : 100);
+                const barryTrailInterval = isMobile ? 180 : 100;
 
                 function createBarryTrail() {
-                    if (isLowEndDevice && document.querySelectorAll('.barry-trail').length > 3) {
-                        return;
-                    }
-                    
                     const barryRect = barryContainer.getBoundingClientRect();
                     const centerX = barryRect.left + barryRect.width / 2;
                     const centerY = barryRect.top + barryRect.height / 2;
@@ -701,16 +506,14 @@
                             rotation: Math.random() * 360,
                             scale: 0.5,
                             opacity: 0,
-                            duration: isMobile ? 1.2 : 1.5,
+                            duration: 1.5,
                             ease: "power2.out",
                             onComplete: () => trail.remove()
                         });
                     }
                 }
 
-                if (!isLowEndDevice) {
-                    setInterval(createBarryTrail, barryTrailInterval);
-                }
+                setInterval(createBarryTrail, barryTrailInterval);
 
                 if (!isMobile) {
                     let lastCursorX = 0;
@@ -750,36 +553,25 @@
                     });
                 }
 
-                if (!isLowEndDevice) {
-                    let parallaxThrottle;
-                    const parallaxDelay = isMobile ? 50 : 16;
+                document.addEventListener('mousemove', (e) => {
+                    const intensity = isMobile ? 0.3 : 0.6;
+                    const x = (e.clientX / window.innerWidth - 0.5) * 18 * intensity;
+                    const y = (e.clientY / window.innerHeight - 0.5) * 18 * intensity;
                     
-                    document.addEventListener('mousemove', (e) => {
-                        if (parallaxThrottle) return;
-                        
-                        parallaxThrottle = setTimeout(() => {
-                            parallaxThrottle = null;
-                        }, parallaxDelay);
-                        
-                        const intensity = isMobile ? 0.2 : 0.6;
-                        const x = (e.clientX / window.innerWidth - 0.5) * 18 * intensity;
-                        const y = (e.clientY / window.innerHeight - 0.5) * 18 * intensity;
-                        
-                        gsap.to(barryContainer, {
-                            x: x,
-                            y: y,
-                            duration: 1.2,
-                            ease: "power1.out"
-                        });
-
-                        gsap.to(titleElement, {
-                            x: -x * 0.2,
-                            y: -y * 0.2,
-                            duration: 1.4,
-                            ease: "power1.out"
-                        });
+                    gsap.to(barryContainer, {
+                        x: x,
+                        y: y,
+                        duration: 1.2,
+                        ease: "power1.out"
                     });
-                }
+
+                    gsap.to(titleElement, {
+                        x: -x * 0.2,
+                        y: -y * 0.2,
+                        duration: 1.4,
+                        ease: "power1.out"
+                    });
+                });
 
                 function handleBarryClick(e) {
                     if (isModalOpen) return;
@@ -847,8 +639,7 @@
                     const clientX = e.clientX || (e.touches && e.touches[0].clientX) || window.innerWidth / 2;
                     const clientY = e.clientY || (e.touches && e.touches[0].clientY) || window.innerHeight / 2;
                     
-                    const heartCount = isLowEndDevice ? 5 : (isMobile ? 7 : 10);
-                    for (let i = 0; i < heartCount; i++) {
+                    for (let i = 0; i < 10; i++) {
                         const heart = document.createElement('div');
                         heart.className = 'heart-particle';
                         heart.innerHTML = '💖';
@@ -875,7 +666,7 @@
                 }
                 
                 function createConfetti() {
-                    const confettiCount = isLowEndDevice ? 20 : (isMobile ? 25 : 50);
+                    const confettiCount = isMobile ? 30 : 50;
                     const confettiEmojis = ['🍓', '💖', '✨', '💕', '🌸', '⭐', '💫'];
                     
                     for (let i = 0; i < confettiCount; i++) {
@@ -976,37 +767,36 @@
                     }
                 });
 
-                if (!isLowEndDevice) {
-                    document.body.addEventListener('click', (e) => {
-                        if (e.target === barryContainer || e.target === barryImg || 
-                            e.target.closest('.modal-overlay') || e.target === barryContainer) {
-                            return;
-                        }
-                        
-                        const x = e.clientX;
-                        const y = e.clientY;
-                        
-                        const ripple = document.createElement('div');
-                        ripple.className = 'bg-ripple';
-                        ripple.style.left = x + 'px';
-                        ripple.style.top = y + 'px';
-                        ripple.style.width = '0px';
-                        ripple.style.height = '0px';
-                        document.body.appendChild(ripple);
-                        
-                        gsap.to(ripple, {
-                            width: 300,
-                            height: 300,
-                            left: x - 150,
-                            top: y - 150,
-                            opacity: 0,
-                            duration: 1,
-                            ease: "power2.out",
-                            onComplete: () => ripple.remove()
-                        });
-                        
-                        const burstCount = isMobile ? 5 : 10;
-                        for (let i = 0; i < burstCount; i++) {
+                document.body.addEventListener('click', (e) => {
+                    if (e.target === barryContainer || e.target === barryImg || 
+                        e.target.closest('.modal-overlay') || e.target === barryContainer) {
+                        return;
+                    }
+                    
+                    const x = e.clientX;
+                    const y = e.clientY;
+                    
+                    const ripple = document.createElement('div');
+                    ripple.className = 'bg-ripple';
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+                    ripple.style.width = '0px';
+                    ripple.style.height = '0px';
+                    document.body.appendChild(ripple);
+                    
+                    gsap.to(ripple, {
+                        width: 300,
+                        height: 300,
+                        left: x - 150,
+                        top: y - 150,
+                        opacity: 0,
+                        duration: 1,
+                        ease: "power2.out",
+                        onComplete: () => ripple.remove()
+                    });
+                    
+                    const burstCount = isMobile ? 6 : 10;
+                    for (let i = 0; i < burstCount; i++) {
                         const sparkle = document.createElement('div');
                         sparkle.innerHTML = ['✨', '💫', '⭐'][Math.floor(Math.random() * 3)];
                         sparkle.style.position = 'fixed';
@@ -1034,8 +824,7 @@
                             onComplete: () => sparkle.remove()
                         });
                     }
-                    });
-                }
+                });
 
                 function createEntranceFlash() {
                     const flash = document.createElement('div');
@@ -1064,7 +853,6 @@
                 setTimeout(createEntranceFlash, 1200);
 
                 function createTextSparkleParticle() {
-                    if (isLowEndDevice) return;
                     const titleRect = titleElement.getBoundingClientRect();
                     const sparkle = document.createElement('div');
                     sparkle.innerHTML = ['✨', '💫', '⭐'][Math.floor(Math.random() * 3)];
@@ -1106,11 +894,9 @@
                         }
                     );
                 }
-                const sparkleInterval = isLowEndDevice ? 4000 : (isMobile ? 3000 : 2000);
-                setInterval(createTextSparkleParticle, sparkleInterval);
+                setInterval(createTextSparkleParticle, 2000);
 
                 function createLightRay() {
-                    if (isLowEndDevice) return;
                     if (Math.random() > 0.5) {
                         const titleRect = titleElement.getBoundingClientRect();
                         const ray = document.createElement('div');
@@ -1145,45 +931,132 @@
                         );
                     }
                 }
-                const lightRayInterval = isMobile ? 3500 : 2200;
-                setInterval(createLightRay, lightRayInterval);
+                setInterval(createLightRay, 2200);
             }
 
-            if (!isMobile) {
-                let lastTrailTime = 0;
-                
-                function createTrailStrawberry(x, y) {
-                    const trail = document.createElement('div');
-                    trail.className = 'cursor-trail';
-                    trail.innerHTML = Math.random() > 0.5 ? '✨' : '🍓';
-                    trail.style.left = x + 'px';
-                    trail.style.top = y + 'px';
-                    document.body.appendChild(trail);
+            let lastTrailTime = 0;
+            
+            function createTrailStrawberry(x, y) {
+                const trail = document.createElement('div');
+                trail.className = 'cursor-trail';
+                trail.innerHTML = Math.random() > 0.5 ? '✨' : '🍓';
+                trail.style.left = x + 'px';
+                trail.style.top = y + 'px';
+                document.body.appendChild(trail);
 
-                    if (typeof gsap !== 'undefined') {
-                        gsap.to(trail, {
-                            y: -50,
-                            x: (Math.random() - 0.5) * 35,
-                            rotation: Math.random() * 360,
-                            scale: 1.8,
-                            opacity: 0,
-                            duration: 1.4,
-                            ease: "power2.out",
-                            onComplete: () => trail.remove()
-                        });
+                if (typeof gsap !== 'undefined') {
+                    gsap.to(trail, {
+                        y: -50,
+                        x: (Math.random() - 0.5) * 35,
+                        rotation: Math.random() * 360,
+                        scale: 1.8,
+                        opacity: 0,
+                        duration: 1.4,
+                        ease: "power2.out",
+                        onComplete: () => trail.remove()
+                    });
+                }
+            }
+            
+            function handleMove(e) {
+                const currentTime = Date.now();
+                if (currentTime - lastTrailTime < 55) return;
+                
+                lastTrailTime = currentTime;
+                
+                let x, y;
+                if (e.touches && e.touches[0]) {
+                    x = e.touches[0].clientX;
+                    y = e.touches[0].clientY;
+                } else {
+                    x = e.clientX;
+                    y = e.clientY;
+                }
+                
+                createTrailStrawberry(x, y);
+            }
+            
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('touchmove', handleMove, { passive: true });
+
+            class StrawberryParticle {
+                constructor() {
+                    this.element = document.createElement('div');
+                    this.element.className = 'strawberry-particle';
+                    this.element.innerHTML = '🍓';
+                    this.reset();
+                    document.body.appendChild(this.element);
+                }
+
+                reset() {
+                    this.x = Math.random() * window.innerWidth;
+                    this.y = -50;
+                    this.speed = Math.random() * 0.4 + 0.4;
+                    this.rotation = 0;
+                    this.rotationSpeed = Math.random() * 1 - 0.5;
+                    this.size = Math.random() * 15 + 15;
+                    this.element.style.fontSize = this.size + 'px';
+                    this.opacity = Math.random() * 0.4 + 0.6;
+                    this.element.style.opacity = this.opacity;
+                }
+
+                update() {
+                    this.y += this.speed;
+                    this.rotation += this.rotationSpeed;
+                    
+                    this.element.style.left = this.x + 'px';
+                    this.element.style.top = this.y + 'px';
+                    this.element.style.transform = `rotate(${this.rotation}deg)`;
+
+                    if (this.y > window.innerHeight + 50) {
+                        this.reset();
                     }
                 }
-                
-                function handleMove(e) {
-                    const currentTime = Date.now();
-                    if (currentTime - lastTrailTime < 55) return;
-                    
-                    lastTrailTime = currentTime;
-                    createTrailStrawberry(e.clientX, e.clientY);
+
+                destroy() {
+                    this.element.remove();
                 }
-                
-                document.addEventListener('mousemove', handleMove);
             }
+
+            const strawberries = [];
+            const strawberryCount = isMobile ? 12 : 15;
+            for (let i = 0; i < strawberryCount; i++) {
+                strawberries.push(new StrawberryParticle());
+            }
+
+            function animateStrawberries() {
+                strawberries.forEach(s => s.update());
+                requestAnimationFrame(animateStrawberries);
+            }
+            animateStrawberries();
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isMobile) {
+                    strawberries.forEach(s => {
+                        const dx = e.clientX - s.x;
+                        const dy = e.clientY - s.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 100) {
+                            const angle = Math.atan2(dy, dx);
+                            const force = (100 - distance) / 100;
+                            s.x -= Math.cos(angle) * force * 3;
+                            s.y -= Math.sin(angle) * force * 3;
+                        }
+                    });
+                }
+            });
+
+            let hue = 0;
+            function animateBackground() {
+                hue = (hue + 0.15) % 360;
+                document.body.style.background = `radial-gradient(circle at 50% 50%, 
+                    hsl(${350 + Math.sin(hue * 0.05) * 10}, 100%, 85%) 0%, 
+                    hsl(${345 + Math.cos(hue * 0.05) * 10}, 100%, 77%) 50%, 
+                    hsl(${340 + Math.sin(hue * 0.08) * 10}, 100%, 70%) 100%)`;
+                requestAnimationFrame(animateBackground);
+            }
+            animateBackground();
         }
 
         if (document.readyState === 'loading') {
