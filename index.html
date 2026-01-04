@@ -22,10 +22,9 @@
             min-height: 100vh;
             overflow: hidden;
             position: relative;
-            cursor: none; /* Hide default cursor */
+            cursor: none;
         }
 
-        /* Three.js 3D Canvas */
         #three-canvas {
             position: fixed;
             top: 0;
@@ -127,13 +126,13 @@
             width: 380px;
             height: 380px;
             border-radius: 50%;
-            border: none; /* Removed border */
+            border: none;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             pointer-events: none;
             opacity: 0;
-            box-shadow: 0 0 50px rgba(255, 255, 255, 0.15); /* Only subtle outer glow */
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.15);
         }
 
         .heart-particle {
@@ -169,7 +168,6 @@
             filter: drop-shadow(0 0 10px rgba(255, 107, 157, 0.8));
         }
 
-        /* Modal */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -250,7 +248,6 @@
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
         }
 
-        /* Custom Strawberry Cursor */
         .custom-cursor {
             position: fixed;
             pointer-events: none;
@@ -265,7 +262,6 @@
             transform: translate(-50%, -50%) scale(1.3);
         }
 
-        /* Barry Particle Trail */
         .barry-trail {
             position: fixed;
             pointer-events: none;
@@ -274,7 +270,6 @@
             will-change: transform, opacity;
         }
 
-        /* Background Stars */
         .bg-star {
             position: fixed;
             width: 3px;
@@ -342,7 +337,6 @@
     </style>
 </head>
 <body>
-    <!-- Three.js 3D Background -->
     <canvas id="three-canvas"></canvas>
 
     <div class="container">
@@ -367,9 +361,9 @@
     
     <script>
         const isMobile = window.innerWidth <= 768;
+        const isLowEndDevice = isMobile && (navigator.hardwareConcurrency <= 4 || navigator.deviceMemory <= 4);
 
-        // === CUSTOM STRAWBERRY CURSOR ===
-        if (!isMobile) { // Only on desktop
+        if (!isMobile) {
             const cursor = document.createElement('div');
             cursor.className = 'custom-cursor';
             cursor.innerHTML = '🍓';
@@ -393,7 +387,6 @@
                 cursor.classList.remove('clicking');
             });
 
-            // Smooth cursor animation
             function animateCursor() {
                 currentX += (cursorX - currentX) * 0.2;
                 currentY += (cursorY - currentY) * 0.2;
@@ -404,9 +397,8 @@
             animateCursor();
         }
 
-        // === BACKGROUND STARS ===
         function createBackgroundStars() {
-            const starCount = isMobile ? 40 : 80;
+            const starCount = isLowEndDevice ? 20 : (isMobile ? 30 : 60);
             for (let i = 0; i < starCount; i++) {
                 const star = document.createElement('div');
                 star.className = 'bg-star';
@@ -415,7 +407,6 @@
                 star.style.animationDelay = Math.random() * 3 + 's';
                 star.style.animationDuration = (Math.random() * 2 + 2) + 's';
                 
-                // Random size variation
                 const size = Math.random() * 2 + 2;
                 star.style.width = size + 'px';
                 star.style.height = size + 'px';
@@ -425,17 +416,18 @@
         }
         createBackgroundStars();
 
-        // === THREE.JS 3D GLOWING PARTICLES ===
         let scene, camera, renderer, particles = [];
         let mouseX = 0, mouseY = 0;
 
         function initThreeJS() {
+            if (isLowEndDevice) {
+                console.log('Three.js disabled for performance');
+                return;
+            }
             scene = new THREE.Scene();
 
-            // Subtle fog for depth
             scene.fog = new THREE.Fog(0xff8fab, 20, 50);
 
-            // Moderate FOV for natural look
             camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.z = 20;
 
@@ -443,22 +435,20 @@
             renderer = new THREE.WebGLRenderer({
                 canvas: canvas,
                 alpha: true,
-                antialias: true
+                antialias: !isMobile,
+                powerPreference: isMobile ? 'low-power' : 'high-performance'
             });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 2));
 
-            // Create emoji textures with proper transparency
             function createEmojiTexture(emoji, size = 64) {
                 const canvas = document.createElement('canvas');
                 canvas.width = size;
                 canvas.height = size;
                 const ctx = canvas.getContext('2d');
                 
-                // Clear canvas to ensure transparency
                 ctx.clearRect(0, 0, size, size);
                 
-                // Draw emoji without background
                 ctx.font = `${size - 10}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -473,8 +463,7 @@
             const heartTexture = createEmojiTexture('💖', 72);
             const sparkleTexture = createEmojiTexture('✨', 64);
 
-            // Create 3D particles with better mobile visibility
-            const particleCount = isMobile ? 60 : 70; // More on mobile
+            const particleCount = isMobile ? 35 : 70;
             
             for (let i = 0; i < particleCount; i++) {
                 const rand = Math.random();
@@ -485,27 +474,24 @@
                     transparent: true,
                     opacity: 1,
                     depthTest: true,
-                    depthWrite: false, // Better blending
+                    depthWrite: false,
                     fog: true,
                     blending: THREE.NormalBlending
                 });
                 
                 const sprite = new THREE.Sprite(spriteMaterial);
                 
-                // CONTROLLED depth range for consistency
-                const z = (Math.random() - 0.5) * 30; // -15 to +15
+                const z = (Math.random() - 0.5) * 30;
                 sprite.position.x = (Math.random() - 0.5) * 45;
                 sprite.position.y = Math.random() * 35 + 15;
                 sprite.position.z = z;
                 
-                // Better visibility on mobile with larger sizes
-                const depthFactor = (z + 15) / 30; // 0 to 1
-                const baseScale = isMobile ? 1.2 : 0.9; // Bigger on mobile
+                const depthFactor = (z + 15) / 30;
+                const baseScale = isMobile ? 1.2 : 0.9;
                 const scaleRange = isMobile ? 1.2 : 1.0;
-                const scale = baseScale + depthFactor * scaleRange; // Mobile: 1.2-2.4, Desktop: 0.9-1.9
+                const scale = baseScale + depthFactor * scaleRange;
                 sprite.scale.set(scale, scale, 1);
                 
-                // Higher opacity on mobile for better visibility
                 const baseOpacity = isMobile ? 0.75 : 0.6;
                 spriteMaterial.opacity = baseOpacity + depthFactor * 0.3;
                 
@@ -519,16 +505,13 @@
                 particles.push(sprite);
             }
 
-            // GLOWING LIGHTS for pink/white aesthetic
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
-            // Main pink glow
             const pinkLight1 = new THREE.PointLight(0xff6b9d, 2, 50);
             pinkLight1.position.set(0, 0, 15);
             scene.add(pinkLight1);
 
-            // White sparkle light
             const whiteLight1 = new THREE.PointLight(0xffffff, 1.5, 40);
             whiteLight1.position.set(15, 10, 10);
             scene.add(whiteLight1);
@@ -537,11 +520,9 @@
             whiteLight2.position.set(-15, -10, 10);
             scene.add(whiteLight2);
 
-            // Moving pink glow
             const movingPinkLight = new THREE.PointLight(0xffc6d9, 2, 35);
             scene.add(movingPinkLight);
 
-            // Subtle cyan rim light for depth
             const rimLight = new THREE.PointLight(0xddffff, 0.8, 45);
             rimLight.position.set(0, -15, -5);
             scene.add(rimLight);
@@ -553,20 +534,24 @@
             });
 
             let time = 0;
+            let frameCount = 0;
             function animate3D() {
                 requestAnimationFrame(animate3D);
+                
+                if (isMobile) {
+                    frameCount++;
+                    if (frameCount % 2 !== 0) return;
+                }
+                
                 time += 0.008;
 
-                // Animate particles
                 particles.forEach((particle) => {
                     particle.position.y -= particle.userData.speed;
                     particle.rotation.z += particle.userData.rotationSpeed;
                     
-                    // Gentle sway
                     const swayTime = time * particle.userData.swaySpeed + particle.userData.swayOffset;
                     particle.position.x += Math.sin(swayTime) * 0.04 * particle.userData.swayAmplitude;
                     
-                    // Respawn at top with consistent size
                     if (particle.position.y < -15) {
                         particle.position.y = 30;
                         particle.position.x = (Math.random() - 0.5) * 45;
@@ -584,20 +569,17 @@
                     }
                 });
 
-                // Animate moving light
                 movingPinkLight.position.x = Math.sin(time * 0.6) * 15;
                 movingPinkLight.position.y = Math.cos(time * 0.4) * 12;
                 movingPinkLight.position.z = Math.sin(time * 0.8) * 8 + 12;
 
-                // VERY SMOOTH camera movement (no sudden changes)
-                const targetX = mouseX * 3; // Further reduced from 4
+                const targetX = mouseX * 3;
                 const targetY = mouseY * 3;
                 
-                camera.position.x += (targetX - camera.position.x) * 0.03; // Slower interpolation
+                camera.position.x += (targetX - camera.position.x) * 0.03;
                 camera.position.y += (targetY - camera.position.y) * 0.03;
                 
-                // Very subtle rotation
-                camera.rotation.y = mouseX * 0.03; // Reduced from 0.05
+                camera.rotation.y = mouseX * 0.03;
                 camera.rotation.x = -mouseY * 0.03;
                 
                 camera.lookAt(scene.position);
@@ -608,23 +590,17 @@
             animate3D();
         }
 
-        document.addEventListener('mousemove', (e) => {
-            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-        });
-
-        document.addEventListener('touchmove', (e) => {
-            if (e.touches[0]) {
-                mouseX = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-                mouseY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-            }
-        }, { passive: true });
+        if (!isMobile) {
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+            });
+        }
 
         if (typeof THREE !== 'undefined') {
             setTimeout(initThreeJS, 100);
         }
 
-        // === GSAP 2D ANIMATIONS ===
         function initAnimation() {
             const titleText = "صبا کوچولو";
             const titleElement = document.getElementById('title');
@@ -650,7 +626,6 @@
             if (typeof gsap !== 'undefined') {
                 gsap.defaults({ ease: "power2.out" });
 
-                // Entrance
                 gsap.from(barryImg, {
                     duration: 1.8,
                     scale: 0,
@@ -661,7 +636,7 @@
 
                 gsap.to(glowRing, {
                     duration: 1.2,
-                    opacity: 0.25, // Even more subtle
+                    opacity: 0.25,
                     scale: 1.2,
                     delay: 0.8,
                     ease: "power2.out"
@@ -676,7 +651,6 @@
                     ease: "back.out(2)"
                 });
 
-                // Floating animations
                 gsap.to(barryImg, {
                     y: -20,
                     duration: 2.8,
@@ -693,24 +667,22 @@
                     yoyo: true
                 });
 
-                // Removed scale animation to prevent size jumping
-
                 gsap.to(glowRing, {
                     scale: 1.35,
-                    opacity: 0.15, // Barely visible
+                    opacity: 0.15,
                     rotation: 360,
                     duration: 15,
                     ease: "linear",
                     repeat: -1
                 });
 
-                // No repeating animation - text stays stable after entrance
-
-                // === PARTICLE TRAIL ON BARRY ===
-                let barryTrailTimer = 0;
-                const barryTrailInterval = 100; // Create trail every 100ms
+                const barryTrailInterval = isLowEndDevice ? 300 : (isMobile ? 180 : 100);
 
                 function createBarryTrail() {
+                    if (isLowEndDevice && document.querySelectorAll('.barry-trail').length > 3) {
+                        return;
+                    }
+                    
                     const barryRect = barryContainer.getBoundingClientRect();
                     const centerX = barryRect.left + barryRect.width / 2;
                     const centerY = barryRect.top + barryRect.height / 2;
@@ -729,77 +701,86 @@
                             rotation: Math.random() * 360,
                             scale: 0.5,
                             opacity: 0,
-                            duration: 1.5,
+                            duration: isMobile ? 1.2 : 1.5,
                             ease: "power2.out",
                             onComplete: () => trail.remove()
                         });
                     }
                 }
 
-                setInterval(createBarryTrail, barryTrailInterval);
+                if (!isLowEndDevice) {
+                    setInterval(createBarryTrail, barryTrailInterval);
+                }
 
-                // === BARRY REACTS TO CURSOR ===
-                let lastCursorX = 0;
-                let lastCursorY = 0;
+                if (!isMobile) {
+                    let lastCursorX = 0;
+                    let lastCursorY = 0;
 
-                document.addEventListener('mousemove', (e) => {
-                    lastCursorX = e.clientX;
-                    lastCursorY = e.clientY;
+                    document.addEventListener('mousemove', (e) => {
+                        lastCursorX = e.clientX;
+                        lastCursorY = e.clientY;
 
-                    // Check distance to Barry
-                    const barryRect = barryContainer.getBoundingClientRect();
-                    const barryCenterX = barryRect.left + barryRect.width / 2;
-                    const barryCenterY = barryRect.top + barryRect.height / 2;
-                    
-                    const dx = e.clientX - barryCenterX;
-                    const dy = e.clientY - barryCenterY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    // If cursor is close to Barry (within 300px), he leans toward it
-                    if (distance < 300) {
-                        const angle = Math.atan2(dy, dx);
-                        const tiltX = Math.sin(angle) * 8; // Tilt up/down
-                        const tiltY = Math.cos(angle) * 8; // Tilt left/right
+                        const barryRect = barryContainer.getBoundingClientRect();
+                        const barryCenterX = barryRect.left + barryRect.width / 2;
+                        const barryCenterY = barryRect.top + barryRect.height / 2;
                         
-                        gsap.to(barryImg, {
-                            rotationX: tiltX,
-                            rotationY: -tiltY,
-                            duration: 0.6,
-                            ease: "power2.out"
-                        });
-                    } else {
-                        // Return to normal
-                        gsap.to(barryImg, {
-                            rotationX: 0,
-                            rotationY: 0,
-                            duration: 0.8,
-                            ease: "power2.out"
-                        });
-                    }
-                });
+                        const dx = e.clientX - barryCenterX;
+                        const dy = e.clientY - barryCenterY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 300) {
+                            const angle = Math.atan2(dy, dx);
+                            const tiltX = Math.sin(angle) * 8;
+                            const tiltY = Math.cos(angle) * 8;
+                            
+                            gsap.to(barryImg, {
+                                rotationX: tiltX,
+                                rotationY: -tiltY,
+                                duration: 0.6,
+                                ease: "power2.out"
+                            });
+                        } else {
+                            gsap.to(barryImg, {
+                                rotationX: 0,
+                                rotationY: 0,
+                                duration: 0.8,
+                                ease: "power2.out"
+                            });
+                        }
+                    });
+                }
 
-                // Smooth parallax (title moves slightly opposite)
-                document.addEventListener('mousemove', (e) => {
-                    const intensity = isMobile ? 0.3 : 0.6; // Gentle intensity
-                    const x = (e.clientX / window.innerWidth - 0.5) * 18 * intensity;
-                    const y = (e.clientY / window.innerHeight - 0.5) * 18 * intensity;
+                if (!isLowEndDevice) {
+                    let parallaxThrottle;
+                    const parallaxDelay = isMobile ? 50 : 16;
                     
-                    gsap.to(barryContainer, {
-                        x: x,
-                        y: y,
-                        duration: 1.2, // Longer duration for smoothness
-                        ease: "power1.out" // Gentler easing
-                    });
+                    document.addEventListener('mousemove', (e) => {
+                        if (parallaxThrottle) return;
+                        
+                        parallaxThrottle = setTimeout(() => {
+                            parallaxThrottle = null;
+                        }, parallaxDelay);
+                        
+                        const intensity = isMobile ? 0.2 : 0.6;
+                        const x = (e.clientX / window.innerWidth - 0.5) * 18 * intensity;
+                        const y = (e.clientY / window.innerHeight - 0.5) * 18 * intensity;
+                        
+                        gsap.to(barryContainer, {
+                            x: x,
+                            y: y,
+                            duration: 1.2,
+                            ease: "power1.out"
+                        });
 
-                    gsap.to(titleElement, {
-                        x: -x * 0.2, // Reduced from 0.4
-                        y: -y * 0.2, // Reduced from 0.4
-                        duration: 1.4, // Even smoother for text
-                        ease: "power1.out"
+                        gsap.to(titleElement, {
+                            x: -x * 0.2,
+                            y: -y * 0.2,
+                            duration: 1.4,
+                            ease: "power1.out"
+                        });
                     });
-                });
+                }
 
-                // Click/Double-click
                 function handleBarryClick(e) {
                     if (isModalOpen) return;
                     
@@ -866,7 +847,8 @@
                     const clientX = e.clientX || (e.touches && e.touches[0].clientX) || window.innerWidth / 2;
                     const clientY = e.clientY || (e.touches && e.touches[0].clientY) || window.innerHeight / 2;
                     
-                    for (let i = 0; i < 10; i++) {
+                    const heartCount = isLowEndDevice ? 5 : (isMobile ? 7 : 10);
+                    for (let i = 0; i < heartCount; i++) {
                         const heart = document.createElement('div');
                         heart.className = 'heart-particle';
                         heart.innerHTML = '💖';
@@ -892,10 +874,8 @@
                     }
                 }
                 
-                
-                // === CONFETTI EXPLOSION ON MODAL ===
                 function createConfetti() {
-                    const confettiCount = isMobile ? 30 : 50;
+                    const confettiCount = isLowEndDevice ? 20 : (isMobile ? 25 : 50);
                     const confettiEmojis = ['🍓', '💖', '✨', '💕', '🌸', '⭐', '💫'];
                     
                     for (let i = 0; i < confettiCount; i++) {
@@ -903,7 +883,6 @@
                         confetti.className = 'confetti-piece';
                         confetti.innerHTML = confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)];
                         
-                        // Start from center
                         const centerX = window.innerWidth / 2;
                         const centerY = window.innerHeight / 2;
                         confetti.style.left = centerX + 'px';
@@ -911,11 +890,10 @@
                         
                         document.body.appendChild(confetti);
                         
-                        // Random explosion direction
                         const angle = (Math.random() * Math.PI * 2);
                         const velocity = Math.random() * 300 + 200;
                         const tx = Math.cos(angle) * velocity;
-                        const ty = Math.sin(angle) * velocity - 100; // Slight upward bias
+                        const ty = Math.sin(angle) * velocity - 100;
                         
                         gsap.to(confetti, {
                             x: tx,
@@ -927,7 +905,6 @@
                             onComplete: () => confetti.remove()
                         });
                         
-                        // Add gravity effect
                         gsap.to(confetti, {
                             y: `+=${Math.random() * 400 + 300}`,
                             duration: Math.random() * 0.8 + 1.2,
@@ -940,15 +917,12 @@
                 function showModal() {
                     isModalOpen = true;
                     
-                    // IMPORTANT: Clear any inline styles first
                     gsap.set(modalContent, { clearProps: "all" });
                     
                     modal.classList.add('show');
                     
-                    // Trigger confetti explosion!
                     createConfetti();
                     
-                    // Then animate from fresh state
                     gsap.fromTo(modalContent,
                         { scale: 0.3, opacity: 0, rotation: 0 },
                         {
@@ -970,7 +944,6 @@
                         onComplete: () => {
                             modal.classList.remove('show');
                             isModalOpen = false;
-                            // Clear props after closing
                             gsap.set(modalContent, { clearProps: "all" });
                         }
                     });
@@ -1003,41 +976,37 @@
                     }
                 });
 
-                // === INTERACTIVE BACKGROUND ===
-                // Click anywhere to create ripple + sparkle burst
-                document.body.addEventListener('click', (e) => {
-                    // Don't trigger on Barry, modal, or buttons
-                    if (e.target === barryContainer || e.target === barryImg || 
-                        e.target.closest('.modal-overlay') || e.target === barryContainer) {
-                        return;
-                    }
-                    
-                    const x = e.clientX;
-                    const y = e.clientY;
-                    
-                    // Create expanding ripple
-                    const ripple = document.createElement('div');
-                    ripple.className = 'bg-ripple';
-                    ripple.style.left = x + 'px';
-                    ripple.style.top = y + 'px';
-                    ripple.style.width = '0px';
-                    ripple.style.height = '0px';
-                    document.body.appendChild(ripple);
-                    
-                    gsap.to(ripple, {
-                        width: 300,
-                        height: 300,
-                        left: x - 150,
-                        top: y - 150,
-                        opacity: 0,
-                        duration: 1,
-                        ease: "power2.out",
-                        onComplete: () => ripple.remove()
-                    });
-                    
-                    // Create sparkle burst
-                    const burstCount = isMobile ? 6 : 10;
-                    for (let i = 0; i < burstCount; i++) {
+                if (!isLowEndDevice) {
+                    document.body.addEventListener('click', (e) => {
+                        if (e.target === barryContainer || e.target === barryImg || 
+                            e.target.closest('.modal-overlay') || e.target === barryContainer) {
+                            return;
+                        }
+                        
+                        const x = e.clientX;
+                        const y = e.clientY;
+                        
+                        const ripple = document.createElement('div');
+                        ripple.className = 'bg-ripple';
+                        ripple.style.left = x + 'px';
+                        ripple.style.top = y + 'px';
+                        ripple.style.width = '0px';
+                        ripple.style.height = '0px';
+                        document.body.appendChild(ripple);
+                        
+                        gsap.to(ripple, {
+                            width: 300,
+                            height: 300,
+                            left: x - 150,
+                            top: y - 150,
+                            opacity: 0,
+                            duration: 1,
+                            ease: "power2.out",
+                            onComplete: () => ripple.remove()
+                        });
+                        
+                        const burstCount = isMobile ? 5 : 10;
+                        for (let i = 0; i < burstCount; i++) {
                         const sparkle = document.createElement('div');
                         sparkle.innerHTML = ['✨', '💫', '⭐'][Math.floor(Math.random() * 3)];
                         sparkle.style.position = 'fixed';
@@ -1065,9 +1034,9 @@
                             onComplete: () => sparkle.remove()
                         });
                     }
-                });
+                    });
+                }
 
-                // One-time entrance flash only (no repeating)
                 function createEntranceFlash() {
                     const flash = document.createElement('div');
                     flash.style.position = 'fixed';
@@ -1092,17 +1061,15 @@
                         }
                     );
                 }
-                // Trigger once during entrance
                 setTimeout(createEntranceFlash, 1200);
 
-                // Subtle sparkle particles around text (less frequent)
                 function createTextSparkleParticle() {
+                    if (isLowEndDevice) return;
                     const titleRect = titleElement.getBoundingClientRect();
                     const sparkle = document.createElement('div');
                     sparkle.innerHTML = ['✨', '💫', '⭐'][Math.floor(Math.random() * 3)];
                     sparkle.style.position = 'fixed';
                     
-                    // Spawn around the text edges
                     const side = Math.random();
                     if (side < 0.5) {
                         sparkle.style.left = (titleRect.left + (Math.random() > 0.5 ? -20 : titleRect.width + 20)) + 'px';
@@ -1139,11 +1106,12 @@
                         }
                     );
                 }
-                setInterval(createTextSparkleParticle, 2000); // Less frequent: 2s instead of 1.2s
+                const sparkleInterval = isLowEndDevice ? 4000 : (isMobile ? 3000 : 2000);
+                setInterval(createTextSparkleParticle, sparkleInterval);
 
-                // Gentle light rays (less frequent)
                 function createLightRay() {
-                    if (Math.random() > 0.5) { // Less frequent
+                    if (isLowEndDevice) return;
+                    if (Math.random() > 0.5) {
                         const titleRect = titleElement.getBoundingClientRect();
                         const ray = document.createElement('div');
                         ray.style.position = 'fixed';
@@ -1177,54 +1145,45 @@
                         );
                     }
                 }
-                setInterval(createLightRay, 2200); // Less frequent: 2.2s instead of 1.6s
+                const lightRayInterval = isMobile ? 3500 : 2200;
+                setInterval(createLightRay, lightRayInterval);
             }
 
-            // Cursor trail
-            let lastTrailTime = 0;
-            
-            function createTrailStrawberry(x, y) {
-                const trail = document.createElement('div');
-                trail.className = 'cursor-trail';
-                trail.innerHTML = Math.random() > 0.5 ? '✨' : '🍓';
-                trail.style.left = x + 'px';
-                trail.style.top = y + 'px';
-                document.body.appendChild(trail);
+            if (!isMobile) {
+                let lastTrailTime = 0;
+                
+                function createTrailStrawberry(x, y) {
+                    const trail = document.createElement('div');
+                    trail.className = 'cursor-trail';
+                    trail.innerHTML = Math.random() > 0.5 ? '✨' : '🍓';
+                    trail.style.left = x + 'px';
+                    trail.style.top = y + 'px';
+                    document.body.appendChild(trail);
 
-                if (typeof gsap !== 'undefined') {
-                    gsap.to(trail, {
-                        y: -50,
-                        x: (Math.random() - 0.5) * 35,
-                        rotation: Math.random() * 360,
-                        scale: 1.8,
-                        opacity: 0,
-                        duration: 1.4,
-                        ease: "power2.out",
-                        onComplete: () => trail.remove()
-                    });
-                }
-            }
-            
-            function handleMove(e) {
-                const currentTime = Date.now();
-                if (currentTime - lastTrailTime < 55) return;
-                
-                lastTrailTime = currentTime;
-                
-                let x, y;
-                if (e.touches && e.touches[0]) {
-                    x = e.touches[0].clientX;
-                    y = e.touches[0].clientY;
-                } else {
-                    x = e.clientX;
-                    y = e.clientY;
+                    if (typeof gsap !== 'undefined') {
+                        gsap.to(trail, {
+                            y: -50,
+                            x: (Math.random() - 0.5) * 35,
+                            rotation: Math.random() * 360,
+                            scale: 1.8,
+                            opacity: 0,
+                            duration: 1.4,
+                            ease: "power2.out",
+                            onComplete: () => trail.remove()
+                        });
+                    }
                 }
                 
-                createTrailStrawberry(x, y);
+                function handleMove(e) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastTrailTime < 55) return;
+                    
+                    lastTrailTime = currentTime;
+                    createTrailStrawberry(e.clientX, e.clientY);
+                }
+                
+                document.addEventListener('mousemove', handleMove);
             }
-            
-            document.addEventListener('mousemove', handleMove);
-            document.addEventListener('touchmove', handleMove, { passive: true });
         }
 
         if (document.readyState === 'loading') {
